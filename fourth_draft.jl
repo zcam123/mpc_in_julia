@@ -62,8 +62,9 @@ end
 function J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_horizon, optimization_states, u_current, error_weights, du_weights)
     #calculate firing rates based on given set of future states
     Z = zeros(0);
-    for i in 1:(length(optimization_states) - control_horizon)
-        z = y_to_z(C*optimization_states[i][1]);
+    for i in 1:4:(prediction_horizon*4 - 3)
+        curr_x = [optimization_states[i], optimization_states[i+1], optimization_states[i+2], optimization_states[i+3]]
+        z = y_to_z(C*curr_x);
         append!(Z, z);
     end
  
@@ -75,7 +76,7 @@ function J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_
 
     #get control penalty via u_penalty function
     U = zeros(0);
-    for i in (prediction_horizon+1):length(optimization_states)
+    for i in (prediction_horizon*4 + 1):length(optimization_states)
         u = optimization_states[i];
         append!(U, u);
     end
@@ -136,8 +137,8 @@ end
 
 #now try to use with optimization package
 #simpler version of J to use with specific values already passed
-f(optimization_states) = J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_horizon, optimization_states, u_current, error_weights, du_weights);
-
+f(optimization_states, p) = p[1]-p[1] + J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_horizon, optimization_states, u_current, error_weights, du_weights);
+p = [0, 0]
 #constraint - takes above functions and takes their difference which must be zero
 cons(optimization_states) = X_atm(optimization_states) - X_behind(optimization_states)
 
@@ -164,7 +165,7 @@ for i in 1:control_horizon
     push!(ub, 70)
 end
 
-prob = OptimizationProblem(opt_fun, initial_state, lb=lb, ub=ub, lcons=lcons, ucons=ucons)
+prob = OptimizationProblem(opt_fun, initial_state, p, lb=lb, ub=ub, lcons=lcons, ucons=ucons)
 
 sol = solve(prob,BBO_adaptive_de_rand_1_bin_radiuslimited());
 
