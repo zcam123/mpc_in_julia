@@ -110,8 +110,8 @@ function X_behind(optimization_states)
     X_behind = [[] for _ in 1:(prediction_horizon-1)]
     for i in 1:(prediction_horizon-1)     
         states = zeros(0);
-        for i in 4*(i-1)+1:4*(i-1)+4
-            append!(states, optimization_states[i])
+        for j in 4*(i-1)+1:4*(i-1)+4
+            append!(states, optimization_states[j])
         end                                 
         push!(X_behind[i], A*states + B .* optimization_states[prediction_horizon*4 + i])
     end
@@ -125,8 +125,8 @@ function X_atm(optimization_states)
     for i in 2:(prediction_horizon)     
         states = zeros(0);
         #gather all parts of this state vector
-        for i in 4*(i-1)+1:4*(i-1)+4
-            append!(states, optimization_states[i])
+        for j in 4*(i-1)+1:4*(i-1)+4
+            append!(states, optimization_states[j])
         end                                 
         push!(X_atm[i-1], states)
     end
