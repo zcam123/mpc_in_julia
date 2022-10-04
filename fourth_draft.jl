@@ -138,7 +138,7 @@ end
 #simpler version of J to use with specific values already passed
 f(optimization_states) = J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_horizon, optimization_states, u_current, error_weights, du_weights);
 
-#constraint - takes above functions and takes difference which must be zero
+#constraint - takes above functions and takes their difference which must be zero
 cons(optimization_states) = X_atm(optimization_states) - X_behind(optimization_states)
 
 #not sure if this has arguments or not
@@ -166,7 +166,6 @@ end
 
 prob = OptimizationProblem(opt_fun, initial_state, lb=lb, ub=ub, lcons=lcons, ucons=ucons)
 
-# #isssue seems to be lack of lower bounds and upper bounds
 sol = solve(prob,BBO_adaptive_de_rand_1_bin_radiuslimited());
 
 
