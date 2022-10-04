@@ -18,7 +18,7 @@ D = [0.0]
 
 #for getting firing rate Z - y[1] used as julia gives a vector for y during following processes by default
 function y_to_z(y)
-    return ℯ^(61.4*y[1] - 5.468);
+    return exp(61.4*y[1] - 5.468);
 end
 
 #creates referene trajectory of desired values for firing rate. Weight argument controls how smooth of a process this should be 
