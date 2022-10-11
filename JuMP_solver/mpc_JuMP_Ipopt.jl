@@ -45,7 +45,7 @@ ctr = 3 #control horizon
 end);
 
 #set objective for the optimization problem
-@objective(neuron, Min, J[pred])
+@NLobjective(neuron, Min, J[pred])
 
 #fix initial conditions 
 x_current = [-1, 1, -0.5, 0.5]
@@ -64,7 +64,7 @@ fix(J[1], J0; force = true)
 
 
 #Expressions for use in determining error values
-@NLexpressions(
+@expressions(
     neuron,
     begin
         #expression for y = C*x - y_val used as y already being used by something else
@@ -74,10 +74,10 @@ fix(J[1], J0; force = true)
 
 for j in 2:pred
     #x vector dynamics - from Ax + Bu
-    @NLconstraint(neuron, x1[j] == x1[j-1] - 6.66*10^(-13)*x2[j-1] - 2.03*10^(-9)*x3[j-1] - 4.14*10^(-6)*x4[j-1] + 94.3*u[j-1])
-    @NLconstraint(neuron, x2[j] == 0.000983*x1[j-1] + x2[j-1] - 4.09*10^(-8)*x3[j-1] - 0.0000832*x4[j-1] + 41.3*u[j-1])
-    @NLconstraint(neuron, x3[j] == 4.83*10^(-7)*x1[j-1] + 0.000983*x2[j-1] + x3[j-1] - 0.000534*x4[j-1] + u[j-1]*1.58*10^-10)
-    @NLconstraint(neuron, x4[j] == 1.58*10^(-10)*x1[j-1] + 4.83*10^(-7)*x2[j-1] + 0.000983*x3[j-1] + 0.9994*x4[j-1] + u[j-1]*3.89*10^-14)
+    @constraint(neuron, x1[j] == x1[j-1] - 6.66*10^(-13)*x2[j-1] - 2.03*10^(-9)*x3[j-1] - 4.14*10^(-6)*x4[j-1] + 94.3*u[j-1])
+    @constraint(neuron, x2[j] == 0.000983*x1[j-1] + x2[j-1] - 4.09*10^(-8)*x3[j-1] - 0.0000832*x4[j-1] + 41.3*u[j-1])
+    @constraint(neuron, x3[j] == 4.83*10^(-7)*x1[j-1] + 0.000983*x2[j-1] + x3[j-1] - 0.000534*x4[j-1] + u[j-1]*1.58*10^-10)
+    @constraint(neuron, x4[j] == 1.58*10^(-10)*x1[j-1] + 4.83*10^(-7)*x2[j-1] + 0.000983*x3[j-1] + 0.9994*x4[j-1] + u[j-1]*3.89*10^-14)
 
     #These constraints force J to properly accrue error over the prediction horizon
     @NLconstraint(neuron, 
