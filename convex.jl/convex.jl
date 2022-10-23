@@ -3,9 +3,8 @@ using Convex, SCS
 #x_desired
 x_desired = [75.03983654, 481.45636789, 540.76706284, 886.34429676]
 
-# Some constraints on our motion
-# The object should start from the origin, and end at rest
-initial_x = [-1, 0.9, -0.4, 1.2];
+
+initial_x = [0,0,0,0];
 initial_u = [5]
 
 T = 100 # The number of timesteps
@@ -24,7 +23,7 @@ C = [-.0096 .0135 .005 -.0095]
 # Declare state variables
 x_vec = Variable(4, T)
 u_policy = Variable(1, T)
-J = Variable(4, T)
+J = Variable(1, T)
 
 # Create a problem instance
 mu = 1
@@ -34,8 +33,10 @@ constraints = Constraint[
     x_vec[:, i+1] == A*x_vec[:, i] + B*u_policy[:, i] for i in 1:T-1
 ]
 
+yD=0.06284303;
+
 for i in 1:T
-    push!(constraints, J[:,i] == x_desired - x_vec[i]) 
+    push!(constraints, J[i] == yD - C*x_vec[i]) 
 end
 
 # Add initial constraints
@@ -46,4 +47,4 @@ push!(constraints, u_policy[1] == initial_u)
 problem = minimize(sumsquares(J), constraints)
 solve!(problem, SCS.Optimizer; silent_solver = true)
 
-u_policy
+x_vec

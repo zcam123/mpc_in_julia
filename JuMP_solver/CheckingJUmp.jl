@@ -1,11 +1,10 @@
 using JuMP
-using NLopt
+import Ipopt
 using Plots
 
 #initialize the model
-neuron = Model(NLopt.Optimizer)
-set_optimizer_attribute(neuron, "algorithm", :LD_MMA) #:LD_MMA  :NLOPT_LD_TNEWTON
-
+neuron = Model(Ipopt.Optimizer)
+set_silent(neuron)
 
 #defining all parameters for model and probem
 A = [1 -6.66e-13 -2.03e-9 -4.14e-6;
@@ -75,18 +74,20 @@ fix(J[1], J0; force = true)
 
 for j in 2:pred
     #x vector dynamics - from Ax + Bu
-    @NLconstraint(neuron, x1[j] == x1[j-1] - 6.66*10^(-13)*x2[j-1] - 2.03*10^(-9)*x3[j-1] - 4.14*10^(-6)*x4[j-1] + 94.3*u[j-1])
-    @NLconstraint(neuron, x2[j] == 0.000983*x1[j-1] + x2[j-1] - 4.09*10^(-8)*x3[j-1] - 0.0000832*x4[j-1] + 41.3*u[j-1])
-    @NLconstraint(neuron, x3[j] == 4.83*10^(-7)*x1[j-1] + 0.000983*x2[j-1] + x3[j-1] - 0.000534*x4[j-1] + u[j-1]*1.58*10^-10)
-    @NLconstraint(neuron, x4[j] == 1.58*10^(-10)*x1[j-1] + 4.83*10^(-7)*x2[j-1] + 0.000983*x3[j-1] + 0.9994*x4[j-1] + u[j-1]*3.89*10^-14)
+    @constraint(neuron, x1[j] == x1[j-1] - 6.66*10^(-13)*x2[j-1] - 2.03*10^(-9)*x3[j-1] - 4.14*10^(-6)*x4[j-1] + 94.3*u[j-1])
+    @constraint(neuron, x2[j] == 0.000983*x1[j-1] + x2[j-1] - 4.09*10^(-8)*x3[j-1] - 0.0000832*x4[j-1] + 41.3*u[j-1])
+    @constraint(neuron, x3[j] == 4.83*10^(-7)*x1[j-1] + 0.000983*x2[j-1] + x3[j-1] - 0.000534*x4[j-1] + u[j-1]*1.58*10^-10)
+    @constraint(neuron, x4[j] == 1.58*10^(-10)*x1[j-1] + 4.83*10^(-7)*x2[j-1] + 0.000983*x3[j-1] + 0.9994*x4[j-1] + u[j-1]*3.89*10^-14)
 
     #These constraints force J to properly accrue error over the prediction horizon
     @NLconstraint(neuron, 
     J[j] == J[j-1] + (y_val[j]-yD)^2)
 end
 
-steps = 10 
+steps = 10000 
 ys = zeros(0) #to store results during control loop
+us = zeros(0) #to store results during control loop
+Js = zeros(0) #to store results during control loop
 append!(ys, y0)
 
 for i in 1:steps
@@ -96,6 +97,8 @@ for i in 1:steps
     #store the new y_value for plotting
     append!(ys, value.(y_val)[2]) #this gets us the second value from the optimized states returned by the solver which will become the new first y in the next loop
         #replace append with replace() usage later
+    append!(us, value.(u)[1])
+    append!(Js, value.(J)[pred])
     #set new initial conditions before next loop
     global x_current = [value.(x1)[2], value.(x2)[2], value.(x3)[2], value.(x4)[2]] #first x vector of next iteration is second x vector of result of optimizer
 
@@ -111,6 +114,7 @@ for i in 1:steps
     fix(J[1], J0; force = true)
 end
 
+
 time = [i for i in 1:steps+1]
 
 function y_to_z(y)
@@ -118,8 +122,16 @@ function y_to_z(y)
 end
 zs = [y_to_z(y) for y in ys]
 
-plot1 = plot(time, zs)
+plot1 = plot(time, zs);
 
 zDs = [0.2 for _ in 1:steps+1]
 
-plot!(time, zDs)
+plot!(time, zDs);
+
+append!(Js, 0)
+plot2 = plot(time, Js)
+
+# append!(us, 0)
+# plot2 = plot(time, us)
+
+#print(us)
