@@ -18,7 +18,7 @@ D = [0.0]
 
 #for getting firing rate Z - y[1] used as julia gives a vector for y during following processes by default
 function y_to_z(y)
-    return ℯ^(61.4*y[1] - 5.468);
+    return exp(61.4*y[1] - 5.468);
 end
 
 #creates referene trajectory of desired values for firing rate. Weight argument controls how smooth of a process this should be 
@@ -62,8 +62,9 @@ end
 function J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_horizon, optimization_states, u_current, error_weights, du_weights)
     #calculate firing rates based on given set of future states
     Z = zeros(0);
-    for i in 1:(length(optimization_states) - control_horizon)
-        z = y_to_z(C*optimization_states[i][1]);
+    for i in 1:4:(prediction_horizon*4 - 3)
+        curr_x = [optimization_states[i], optimization_states[i+1], optimization_states[i+2], optimization_states[i+3]]
+        z = y_to_z(C*curr_x);
         append!(Z, z);
     end
  
@@ -75,7 +76,7 @@ function J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_
 
     #get control penalty via u_penalty function
     U = zeros(0);
-    for i in (prediction_horizon+1):length(optimization_states)
+    for i in (prediction_horizon*4 + 1):length(optimization_states)
         u = optimization_states[i];
         append!(U, u);
     end
@@ -110,8 +111,8 @@ function X_behind(optimization_states)
     X_behind = [[] for _ in 1:(prediction_horizon-1)]
     for i in 1:(prediction_horizon-1)     
         states = zeros(0);
-        for i in 4*(i-1)+1:4*(i-1)+4
-            append!(states, optimization_states[i])
+        for j in 4*(i-1)+1:4*(i-1)+4
+            append!(states, optimization_states[j])
         end                                 
         push!(X_behind[i], A*states + B .* optimization_states[prediction_horizon*4 + i])
     end
@@ -125,8 +126,8 @@ function X_atm(optimization_states)
     for i in 2:(prediction_horizon)     
         states = zeros(0);
         #gather all parts of this state vector
-        for i in 4*(i-1)+1:4*(i-1)+4
-            append!(states, optimization_states[i])
+        for j in 4*(i-1)+1:4*(i-1)+4
+            append!(states, optimization_states[j])
         end                                 
         push!(X_atm[i-1], states)
     end
@@ -136,12 +137,11 @@ end
 
 #now try to use with optimization package
 #simpler version of J to use with specific values already passed
-f(optimization_states) = J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_horizon, optimization_states, u_current, error_weights, du_weights);
-
+f(optimization_states, p) = p[1]-p[1] + J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_horizon, optimization_states, u_current, error_weights, du_weights);
+p = [0, 0]
 #constraint - takes above functions and takes their difference which must be zero
 cons(optimization_states) = X_atm(optimization_states) - X_behind(optimization_states)
 
-#not sure if this has arguments or not
 opt_fun = OptimizationFunction(f, cons=cons)
 
 #define lcons to match vector difference returned by constraint
@@ -152,80 +152,52 @@ end
 
 ucons = lcons
 
+#initial guess for optimizer
 initial_state = optimization_states
 
 #make lower and upper bounds that correspond with the optimization_states vector
-lb = [-10 for _ in 1:(prediction_horizon*4)] 
+lb = [-1000 for _ in 1:(prediction_horizon*4)] 
 for i in 1:control_horizon
     push!(lb, 0)
 end
-ub = [10 for _ in 1:(prediction_horizon*4)] 
+ub = [1000 for _ in 1:(prediction_horizon*4)] 
 for i in 1:control_horizon
     push!(ub, 70)
 end
 
-prob = OptimizationProblem(opt_fun, initial_state, lb=lb, ub=ub, lcons=lcons, ucons=ucons)
+#Now to run a control loop
+steps = 1000;
+#First state is comprised of first four elements of initial_state
+first_x = optimization_states[1:4];
+#add first z value to vector which we'll add all the coming z's to
+Zs = [y_to_z((C*first_x))]
 
-sol = solve(prob,BBO_adaptive_de_rand_1_bin_radiuslimited());
+function control_loop(steps, Zs, initial_state)
+    start_state = initial_state
+    for _ in 1:steps
+        prob = OptimizationProblem(opt_fun, start_state, p, lb=lb, ub=ub, lcons=lcons, ucons=ucons)
+        solution = solve(prob,BBO_adaptive_de_rand_1_bin_radiuslimited());
+        #update initial state with result of optimization step vector
+        start_state = solution.u
 
+        #need to redefine optimization function here with extra constraint that forces it to keep first x vector
+        #equal to A*current value + B*(first input the optimizer chose)
 
+        #before moving to next step and solving again store results for plotting
+        x_add = start_state[1:4];
+        append!(Zs, y_to_z(C*x_add))
+    end
+    return Zs
+end
+inputs = zeros(0)
+Zs = control_loop(steps, Zs, initial_state)
 
+time = [i for i in 1:steps+1]
 
-#ignore below for now
+goal = [0.2 for i in 1:steps+1]
 
-#function to run the control loop
-#optimizes J(x) at each iteration then impliments one step of optimal control policy
-#before recomputing at next step
-# function control_loop(A, B, C, y_to_z, sim, reference, errors, u_penalty, control_horizon, prediction_horizon, x_current, u_current, error_weights, du_weights, states; steps=10)
-#     for i in 1:steps
-#         #call J and have it minimized - u is a list of x vectors followed by a list of control values - "optimization states" from above definition
-#         rosenbrock(u) =  J(C, y_to_z, reference, errors, u_penalty, control_horizon, prediction_horizon, u, u_current, error_weights, du_weights)
-
-#         u0 = [u_current];
-#         append!(u0, zeros(control_horizon-1));
-
-#         prob = OptimizationProblem(rosenbrock, u0, p, );
-#         U = solve(prob, BBO_adaptive_de_rand_1_bin_radiuslimited());
-        
-#         uAccess = zeros(0);
-#         for elem in U.u
-#             append!(uAccess, elem)
-#         end
-#     end
-#     return uAccess
-# end
-
-
-# #now we can try to run a control loop 
-# #Here are some trial values
-# ctr_hor = 2;
-# pred = 3;
-# error_weights = [1 for i in 1:pred];
-# du_weights = [0 for i in 1:ctr_hor];
-# states = zeros(0);
-# u_current = 0;
-# x_current = [-1.548; 2.18; .806; -1.53];
-
-# steps = 600;
-
-# xs = control_loop(A, B, C, D, y_to_z, sim, reference, errors, u_penalty, ctr_hor, pred, x_current, u_current, error_weights, du_weights, states; steps=steps);
-
-# #loop over results in order to get them in plotable form 
-# z_list = zeros(0);
-# upper_index = steps*4 - 3;
-# for i in 1:4:upper_index
-#     xadd = [xs[i]; xs[i+1]; xs[i+2]; xs[i+3]];
-#     z_add = y_to_z(C*xadd);
-#     append!(z_list, z_add);
-# end
-
-
-# time = [i for i in 1:steps]
-
-# goal = [0.2 for i in 1:steps]
-
-# plot1 = plot(time, z_list);
-# plot!(time, goal)
+plot1 = plot(time, Zs);
+plot!(time, goal)
 
 
 
