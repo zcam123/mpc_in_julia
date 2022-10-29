@@ -104,10 +104,10 @@ for i in 1:steps
     fix(x4[1], x_current[4]; force = true)
 
     #give starting error value based on first y value and y_desired
-    global y0=x_to_y(x_current)
-    J0=(yD-y0)^2
-    global J0 = (yD-y0)^2
-    fix(J[1], J0; force = true)
+    # global y0=x_to_y(x_current)
+    # J0=(yD-y0)^2
+    # global J0 = (yD-y0)^2
+    # fix(J[1], J0; force = true)
 end
 
 time = [i for i in 1:steps+1]
