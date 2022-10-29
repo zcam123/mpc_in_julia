@@ -17,17 +17,11 @@ B = [9.83e-4, 4.83e-7, 1.58e-10, 3.89e-14]
 
 C = [-.0096 .0135 .005 -.0095]
 
-#functions based on Ax + Bu to give each part of the x vector - used as storing components of x vector seperately is more convenient with their setup
-# x1next(x1, x2, x3, x4, u) = x1 - 6.66*10^(-13)*x2 - 2.03*10^(-9)*x3 - 4.14*10^(-6)*x4 + 94.3*u
-# x2next(x1, x2, x3, x4, u) = 0.000983*x1 + x2 - 4.09*10^(-8)*x3 - 0.0000832*x4 + 41.3*u
-# x3next(x1, x2, x3, x4, u) = 4.83*10^(-7)*x1 + 0.000983*x2 + x3 - 0.000534*x4 + u*1.58*10^-10
-# x4next(x1, x2, x3, x4, u) = 1.58*10^(-10)*x1 + 4.83*10^(-7)*x2 + 0.000983*x3 + 0.9994*x4 + u*3.89*10^-14
-
 #function based on C*x to get y  
 x_to_y(x) = C*x
 
 t_step = 0.001 #1 milisecond
-pred = 5 #prediction horizon - number of time steps that the optimizer will go through in determining the value of J and minimizing it
+pred = 5 #prediction horizon
 ctr = 3 #control horizon
 
 #Define state variables
@@ -68,17 +62,9 @@ for j in 2:pred
     @constraint(neuron, x[1:4, j] .== A*x[1:4, j-1] + B*u[j-1])
 end
 
-# optimize!(neuron)
-# solution_summary(neuron)
-
-# y_val[4][1]
-
-# stats = value.(x)
-# stats[3, 2]
-
-steps = 50000 
+steps = 10000 
 ys = zeros(0) #to store results during control loop
-
+us = zeros(0)
 
 for i in 1:steps
     #solve the optimization problem
@@ -87,7 +73,7 @@ for i in 1:steps
     #store the new y_value for plotting
     append!(ys, value.(y_val[2, 1][1])) #this gets us the second value from the optimized states returned by the solver which will become the new first y in the next loop
         #replace append with replace() usage later
-    
+    append!(us, value.(u[1]))
     #get state after application of first input to be used as new first state
     new_initial = [value.(x[i, 2]) for i in 1:4] #need to store these results from the solve before fix statements reset the model
     
@@ -106,8 +92,16 @@ function y_to_z(y)
 end
 zs = [y_to_z(y) for y in ys]
 
-plot1 = plot(time, zs)
+plot1 = plot(time, zs, label="firing rate")
 
 zDs = [0.2 for _ in 1:steps]
 
-plot!(time, zDs)
+plot!(time, zDs, label="zD")
+
+plot!(time, us, label="u")
+
+#plot2 = plot(time, us, label="u")
+
+
+
+
