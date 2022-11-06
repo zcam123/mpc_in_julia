@@ -21,8 +21,8 @@ C = [-.0096 .0135 .005 -.0095]
 x_to_y(x) = C*x
 
 t_step = 0.001 #1 milisecond
-pred = 5 #prediction horizon
-ctr = 3 #control horizon
+pred = 6250 #prediction horizon - corresponds to 25 sampling intervals (each 250 ms apart)
+ctr = 1250 #control horizon 
 
 #Define state variables
 @variables(neuron, begin
@@ -41,8 +41,6 @@ fix(x[2, 1], x_current[2]; force = true)
 fix(x[3, 1], x_current[3]; force = true)
 fix(x[4, 1], x_current[4]; force = true)
 
-fix.(u[ctr+1:pred], u[ctr]; force=true)
-
 #Expressions for use in determining error values
 @expressions(
     neuron,
@@ -51,17 +49,23 @@ fix.(u[ctr+1:pred], u[ctr]; force=true)
         y_val[j = 1:pred], C*[x[1,j]; x[2,j]; x[3,j]; x[4,j]] 
                               #yD
         error[j = 1:pred], 0.06284303 - y_val[j][1]  #second index is necessary to get expression for some reason
+
+        #only use errors at sampling points?
+        sampled_error[j = 1:25], error[j*250]
     end
 );
 
 #expression for sum of squares of error 
-objective_expression = transpose(error)*error
+objective_expression = sampled_error'*sampled_error
 
 @objective(neuron, Min, objective_expression)
 
 for j in 2:pred
     #x vector dynamics - from Ax + Bu
     @constraint(neuron, x[1:4, j] .== A*x[1:4, j-1] + B*u[j-1])
+end
+for i in 1:250:pred
+    @constraint(neuron, u[i+1:i+249] .== u[i])
 end
 
 steps = 1000 
