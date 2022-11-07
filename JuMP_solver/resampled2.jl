@@ -23,6 +23,9 @@ x_to_y(x) = C*x
 t_step = 0.001 #1 milisecond
 pred = 6250 #prediction horizon - corresponds to 25 sampling intervals (each 250 ms apart)
 ctr = 1250 #control horizon 
+sample = 250 
+
+input_size = ctr/sample + 1
 
 #Define state variables
 @variables(neuron, begin
@@ -30,7 +33,7 @@ ctr = 1250 #control horizon
     # State vector
     x[1:4, 1:pred]
     #control value u         
-    0 ≤ u[1:pred] ≤ 70     
+    0 ≤ u[1:6] ≤ 70     
 end);  
 
 #fix initial conditions 
@@ -51,7 +54,7 @@ fix(x[4, 1], x_current[4]; force = true)
         error[j = 1:pred], 0.06284303 - y_val[j][1]  #second index is necessary to get expression for some reason
 
         #only use errors at sampling points?
-        sampled_error[j = 1:25], error[j*250]
+        sampled_error[j = 1:25], error[j*250] #seems that number must be manually put in for index or error is thrown
     end
 );
 
@@ -60,12 +63,19 @@ objective_expression = sampled_error'*sampled_error
 
 @objective(neuron, Min, objective_expression)
 
-for j in 2:pred
-    #x vector dynamics - from Ax + Bu
-    @constraint(neuron, x[1:4, j] .== A*x[1:4, j-1] + B*u[j-1])
+for j in 2:sample
+    #x vector dynamics 
+    @constraint(neuron, x[1:4, j] .== A*x[1:4, j-1] + B*u[1])
 end
-for i in 1:250:pred
-    @constraint(neuron, u[i+1:i+249] .== u[i])
+for i in 2:convert(Int64, (ctr/sample))
+    for j in (1 + sample*(i-1)):sample*i
+        #x vector dynamics 
+        @constraint(neuron, x[1:4, j] .== A*x[1:4, j-1] + B*u[i])
+    end
+end
+for j in (ctr+1):pred
+    #x vector dynamics 
+    @constraint(neuron, x[1:4, j] .== A*x[1:4, j-1] + B*u[convert(Int64, ctr/sample + 1)])
 end
 
 steps = 100 
