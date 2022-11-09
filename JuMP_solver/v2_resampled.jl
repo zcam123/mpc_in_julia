@@ -19,8 +19,9 @@
     z2y(z) = (log(z) + 5.468)/61.4
 
     t_step = 0.001 #1 milisecond
-    pred = 5 #prediction horizon
-    ctr = 3 #control horizon
+    pred = 25 #prediction horizon
+    ctr = 5 #control horizon
+    sample = 250 #number of steps between sampling points for control
 
     zD = 0.2
     yD = z2y(zD)
@@ -37,22 +38,31 @@
 
     #Define state variables
     @variables(neuron, begin
-        x[i=1:4, t=1:pred], (start = 0)
-        0 ≤ u[1:1, 1:pred], (start = 0)
+        x[i=1:4, t=1:(pred*sample)], (start = 0)
+        0 ≤ u[1:1, 1:(ctr+1)], (start = 0)
     end)
 
     @expressions(
         neuron,
         begin
             y, C*x
-            x_error[t=1:pred], x[:, t] - xD
-            x_cost[t=1:pred], x_error[t]'*Q*x_error[t]
-            u_cost[t=1:pred], u[t]'*R*u[t]
+            x_error[t=1:(pred*sample)], x[:, t] - xD
+            x_cost[t=1:(pred*sample)], x_error[t]'*Q*x_error[t]
+            sampled_x_cost[t=1:pred], x_cost[t*250]
+            #u_cost[t=1:pred], u[t]'*R*u[t]
         end
     )
     
     #fix first sample steps
-    @constraint(neuron, dyncon, x[:, 2:pred] .== A*x[:, 1:pred-1] + B*u[:, 1:pred-1])
+    @constraint(neuron, x[:, 2:(sample)] .== A*x[:, 1:sample-1] + B*u[:, 1])
+
+    #fix each sample period
+    for i in 1:(ctr-1)
+        @constraint(neuron, x[:, (sample*i+1):(sample*i+sample)] .== A*x[:, (sample*i):(sample*i+sample-1)] + B*u[:, (i+1)])
+    end
+
+    #fix first sample steps
+    @constraint(neuron, x[:, (ctr*sample+1):(pred*sample)] .== A*x[:, (ctr*sample):(pred*sample-1)] + B*u[:, (ctr+1)])
 
     # for t in 2:pred
     #     #x vector dynamics - from Ax + Bu
@@ -60,7 +70,7 @@
     # end
 
     # x_cost[t] returns a 1x1 matrix, which we need to index to get the value out
-    J = @objective(neuron, Min, sum(x_cost[t][1] for t in 2:pred) + sum(u_cost[t] for t in 1:pred-1))
+    J = @objective(neuron, Min, sum(sampled_x_cost[t][1] for t in 2:(pred))) # + sum(u_cost[t] for t in 1:pred-1))
 
 
     function sim(steps, x0; u_clamp=nothing, sample=250)
