@@ -47,7 +47,7 @@ end)
         y, C*x
         x_error[t=1:(pred*sample)], x[:, t] - xD
         x_cost[t=1:(pred*sample)], x_error[t]'*Q*x_error[t]
-        sampled_x_cost[t=1:pred], x_cost[t*250]
+        sampled_x_cost[t=1:pred], x_cost[t*sample]
         #u_cost[t=1:pred], u[t]'*R*u[t]
     end
 )
@@ -92,9 +92,10 @@ function sim(steps, x0; u_clamp=nothing, sample=250)
 end
 
 @time begin
-    zs, us = sim(10, zeros(4), u_clamp=nothing, sample=250);
+    zs, us = sim(16, zeros(4), u_clamp=nothing, sample=sample);
 end
 
+print(zs[16*sample])
 pz = plot(zs, label="z", color="red")
-# pu = plot(us, label="u")
-# plot(pz, pu, layout=[1,1])
+pu = plot(us, label="u")
+plot(pz, pu, layout=[1,1])
