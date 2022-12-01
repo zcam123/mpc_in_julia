@@ -78,7 +78,7 @@ for j in (ctr+1):pred
     @constraint(neuron, x[1:4, j] .== A*x[1:4, j-1] + B*u[convert(Int64, ctr/sample + 1)])
 end
 
-steps = 10 
+steps = 22 
 ys = zeros(0) #to store results during control loop
 us = zeros(0)
 
@@ -116,12 +116,10 @@ function y_to_z(y)
 end
 zs = [y_to_z(y) for y in ys]
 
-plot1 = plot(time, zs, label="firing rate");
-
 zDs = [0.2 for _ in 1:steps*sample]
 
-plot3 = plot(time, zDs, label="zD");
+plot1 = plot(time, [zs,zDs], label="firing rate");
 
 #plot2 = plot(time, plotable_us, label="u");
 
-plot(plot1, plot3, layout=[1,1])
+plot1

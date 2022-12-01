@@ -25,7 +25,7 @@ sample = 250 #number of steps between sampling points for control
 zD = 0.2
 yD = z2y(zD)
 uD = inv(C*inv(I - A)*B) * yD
-xD = inv(I - A) * B * uD
+#xD = inv(I - A) * B * uD
 
 Q = C'*C
 R = 1e-5*I
@@ -39,16 +39,17 @@ set_silent(neuron)
 @variables(neuron, begin
     x[i=1:4, t=1:(pred*sample)], (start = 0)
     0 ≤ u[1:1, 1:(ctr+1)], (start = 0)
+    xD[i=1:4, t=1:(pred*sample)], (start = 0)
 end)
 
 @expressions(
     neuron,
     begin
         y, C*x
-        x_error[t=1:(pred*sample)], x[:, t] - xD
+        x_error[t=1:(pred*sample)], x[:, t] - xD[:, t]
         x_cost[t=1:(pred*sample)], x_error[t]'*Q*x_error[t]
         sampled_x_cost[t=1:pred], x_cost[t*sample]
-        #u_cost[t=1:pred], u[t]'*R*u[t]
+        u_cost[t=1:ctr+1], u[t]'*R*u[t]
     end
 )
 
@@ -63,9 +64,35 @@ end
 #fix rest of inputs 
 @constraint(neuron, x[:, (ctr*sample+1):(pred*sample)] .== A*x[:, (ctr*sample):(pred*sample-1)] + B*u[:, (ctr+1)])
 
-# x_cost[t] returns a 1x1 matrix, which we need to index to get the value out
-J = @objective(neuron, Min, sum(sampled_x_cost[t][1] for t in 2:(pred))) # + sum(u_cost[t] for t in 1:pred-1))
+#add in our variable reference
+#structured to take a list of firing rate values, convert them to x vectors, then pad with zeros if necessary
+firing_rate_ref = [0.2 for _ in 1:5000] #trial firing rate reference
 
+
+function get_states(firing_rates, A, B)
+    desired_states = [[] for _ in 1:(length(firing_rates))];
+    for i in 1:(length(firing_rates))
+        yD = z2y(firing_rates[i])
+        uD = inv(C*inv(I - A)*B) * yD
+        xD = inv(I - A) * B * uD
+        push!(desired_states[i], xD)
+    end
+    return desired_states
+end
+
+desired_states = get_states(firing_rate_ref, A, B)
+#print(desired_states)
+#print(length(desired_states))######
+for i in 1:(length(desired_states))
+       fix.(xD[:, i], desired_states[i][1]; force=true)
+end
+for i in (length(desired_states)+1):(pred*sample)
+       fix.(xD[:, i], [0;0;0;0]; force=true)
+end
+
+print(sampled_x_cost)
+# x_cost[t] returns a 1x1 matrix, which we need to index to get the value out
+J = @objective(neuron, Min, sum(sampled_x_cost[t] for t in 2:(pred)) + sum(u_cost[t] for t in 1:ctr+1))
 
 function sim(steps, x0; u_clamp=nothing, sample=250)
     zs = zeros(0)
@@ -92,7 +119,7 @@ function sim(steps, x0; u_clamp=nothing, sample=250)
 end
 
 @time begin
-    zs, us = sim(16, zeros(4), u_clamp=nothing, sample=sample);
+    zs, us = sim(22, zeros(4), u_clamp=nothing, sample=sample);
 end
 
 print(zs[16*sample])
