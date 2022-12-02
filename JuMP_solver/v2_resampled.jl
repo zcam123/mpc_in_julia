@@ -20,7 +20,7 @@ z2y(z) = (log(z) + 5.468)/61.4
 t_step = 0.001 #1 milisecond
 pred = 25 #prediction horizon
 ctr = 5 #control horizon
-sample = 250 #number of steps between sampling points for control
+sample = 200 #number of steps between sampling points for control
 
 zD = 0.2
 yD = z2y(zD)
@@ -66,7 +66,7 @@ end
 
 #add in our variable reference
 #structured to take a list of firing rate values, convert them to x vectors, then pad with zeros if necessary
-firing_rate_ref = [0.2 for _ in 1:5000] #trial firing rate reference
+firing_rate_ref = [abs(sin(4*i/(pred*sample) * pi/2)) for i in 1:(pred*sample)] #trial firing rate reference
 
 
 function get_states(firing_rates, A, B)
@@ -86,15 +86,18 @@ desired_states = get_states(firing_rate_ref, A, B)
 for i in 1:(length(desired_states))
        fix.(xD[:, i], desired_states[i][1]; force=true)
 end
-for i in (length(desired_states)+1):(pred*sample)
-       fix.(xD[:, i], [0;0;0;0]; force=true)
+
+if (length(desired_states)) < (pred*sample)
+    for i in (length(desired_states)+1):(pred*sample)
+        fix.(xD[:, i], [0;0;0;0]; force=true)
+    end
 end
 
 print(sampled_x_cost)
 # x_cost[t] returns a 1x1 matrix, which we need to index to get the value out
 J = @objective(neuron, Min, sum(sampled_x_cost[t] for t in 2:(pred)) + sum(u_cost[t] for t in 1:ctr+1))
 
-function sim(steps, x0; u_clamp=nothing, sample=250)
+function sim(steps, x0, desired_states; u_clamp=nothing, sample=250)
     zs = zeros(0)
     us = zeros(0)
     x_current = x0
@@ -113,16 +116,33 @@ function sim(steps, x0; u_clamp=nothing, sample=250)
             x_current = A*x_current + B*const_u
             append!(zs, y2z.((C*x_current)[1]))
         end
+
+        #now need to update the reference by "shifting it" one sample size forward and padding with more zeros   
+        #need different cases depending on how much of the reference has been "used up"
+        #case 1 for if more than a sample's worth of reference points remain
+        if length(desired_states) - sample*t >= sample
+            for j in (1 + sample*t):length(desired_states)
+                fix.(xD[:, (j-sample*t)], desired_states[j][1]; force=true)
+            end
+            if (length(desired_states) - sample*t) < (pred*sample)
+                for i in (length(desired_states)-sample*t + 1):(pred*sample)
+                    fix.(xD[:, i], [0;0;0;0]; force=true)
+                end
+            end
+        end
+
     end
     #println(solution_summary(neuron))
     return zs, us
 end
 
 @time begin
-    zs, us = sim(22, zeros(4), u_clamp=nothing, sample=sample);
+    zs, us = sim(60, zeros(4), desired_states, u_clamp=nothing, sample=sample);
 end
 
 print(zs[16*sample])
+
 pz = plot(zs, label="z", color="red")
 pu = plot(us, label="u")
-plot(pz, pu, layout=[1,1])
+pzD = plot(firing_rate_ref, label="reference")
+plot(pz, pu, pzD, layout=[1,1,1])
