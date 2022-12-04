@@ -66,8 +66,10 @@ end
 
 #add in our variable reference
 #structured to take a list of firing rate values, convert them to x vectors, then pad with zeros if necessary
-firing_rate_ref = [abs(sin(4*i/(pred*sample) * pi/2)) for i in 1:(pred*sample)] #trial firing rate reference
-
+##firing_rate_ref = [i < 3000 ? 0.1 : 0.15 for i in 1:(pred*sample)] #trial firing rate reference
+firing_rate_ref = [0.2*abs(sin(i/(pred*sample) * pi/2)) for i in 1:(pred*sample)] #trial firing rate reference
+#firing_rate_ref = [0.2 for i in 1:(pred*sample)] #trial firing rate reference
+#firing_rate_ref = [0.2*abs(cos(i/(pred*sample) * pi/2)) for i in 1:(pred*sample)] #trial firing rate reference
 
 function get_states(firing_rates, A, B)
     desired_states = [[] for _ in 1:(length(firing_rates))];
@@ -81,19 +83,17 @@ function get_states(firing_rates, A, B)
 end
 
 desired_states = get_states(firing_rate_ref, A, B)
-#print(desired_states)
-#print(length(desired_states))######
+
 for i in 1:(length(desired_states))
        fix.(xD[:, i], desired_states[i][1]; force=true)
 end
 
 if (length(desired_states)) < (pred*sample)
     for i in (length(desired_states)+1):(pred*sample)
-        fix.(xD[:, i], [0;0;0;0]; force=true)
+        fix.(xD[:, i], desired_states[end][1]; force=true)
     end
 end
 
-print(sampled_x_cost)
 # x_cost[t] returns a 1x1 matrix, which we need to index to get the value out
 J = @objective(neuron, Min, sum(sampled_x_cost[t] for t in 2:(pred)) + sum(u_cost[t] for t in 1:ctr+1))
 
@@ -126,7 +126,7 @@ function sim(steps, x0, desired_states; u_clamp=nothing, sample=250)
             end
             if (length(desired_states) - sample*t) < (pred*sample)
                 for i in (length(desired_states)-sample*t + 1):(pred*sample)
-                    fix.(xD[:, i], [0;0;0;0]; force=true)
+                    fix.(xD[:, i], desired_states[end][1]; force=true)
                 end
             end
         end
@@ -136,13 +136,37 @@ function sim(steps, x0, desired_states; u_clamp=nothing, sample=250)
     return zs, us
 end
 
+steps = 40
 @time begin
-    zs, us = sim(60, zeros(4), desired_states, u_clamp=nothing, sample=sample);
+    zs, us = sim(steps, zeros(4), desired_states, u_clamp=nothing, sample=sample);
 end
 
-print(zs[16*sample])
 
-pz = plot(zs, label="z", color="red")
-pu = plot(us, label="u")
-pzD = plot(firing_rate_ref, label="reference")
-plot(pz, pu, pzD, layout=[1,1,1])
+
+# pz = plot(zs, label="z", color="red")
+# pu = plot(us, label="u")
+# pzD = plot(firing_rate_ref, label="reference")
+# plot(pz, pu, pzD, layout=[1,1,1])
+
+last = firing_rate_ref[end][1]
+
+if (length(firing_rate_ref)) < (steps*sample)
+    for i in (length(firing_rate_ref)):(steps*sample - 1)
+        append!(firing_rate_ref, last)
+    end
+end
+
+plottable_us = []
+for u in us
+    for i in 1:sample
+        append!(plottable_us, u)
+    end
+end
+
+print(length(firing_rate_ref), "\n", length(plottable_us), "\n", length(zs))
+
+time = [i for i in 1:(steps*sample)]
+zs_plot = plot(time, [firing_rate_ref[1:(sample*steps)], zs], label=["reference" "firing rate"])
+plot!(legend=:outerbottom, legendcolumns=2)
+u_plot = plot(time, plottable_us, label="u")
+plot(zs_plot, u_plot, layout=[1, 1])
