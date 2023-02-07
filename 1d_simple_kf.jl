@@ -1,3 +1,7 @@
+#####
+#ONE DIMENSIONAL VERSION
+####
+
 #function to compute Kalman gain based on measurement uncertainty (r) and previous estimate uncertainty (p)
 function kalman_gain(r, old_p)
     K = old_p / (old_p + r)
