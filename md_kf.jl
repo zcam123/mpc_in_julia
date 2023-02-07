@@ -1,3 +1,6 @@
+using LinearAlgebra
+using Plots
+
 #parameters of the model
 A = [1 -6.66e-13 -2.03e-9 -4.14e-6;
         9.83e-4 1 -4.09e-8 -8.32e-5;
