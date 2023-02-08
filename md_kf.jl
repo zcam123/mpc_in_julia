@@ -43,13 +43,13 @@ end
 F = A
 #def initial estimate uncertainty
 #assume that covariance of latent state vars is zero
-P = I*0.3 #initial estimate uncertainty depends on confidence in our initial guess of the state x
+P = I*0.01 #initial estimate uncertainty depends on confidence in our initial guess of the state x
 
 #observability matrix H (which is C in our model)
 H = [-.0096 .0135 .005 -.0095];
 
 #measurement uncertainty R depends on accuracy of our LFP measurements
-R = [0.000]
+R = [0.01] #nonzero now that we have added noise
 
 #process noise Q
 Q = I*0
@@ -68,9 +68,9 @@ Q = I*0
 #ok now try to make a full loop
 
 function quick_trial(P, H, F, A, B, C, R, Q)
-    x = [0, 0, 0, 0] #initial guess
+    x = [0.001, 0.001, 0.001, 0.001] #initial guess
     u = 0.1 #constant input
-    iters = 2000
+    iters = 200
     lfps = []
     for i in 1:iters
         x = A*x + B*u
@@ -78,11 +78,13 @@ function quick_trial(P, H, F, A, B, C, R, Q)
     end
 
     lfp_est = []
+    noisy_meas = []
     #kf loop
     x = [0, 0, 0, 0] #one time step behind exact starting value so very good initial guess
     for i in 1:iters
         #get measurement
-        z = lfps[i]
+        z = [ lfps[i][1] + (-1)^(rand(1:2)) * rand(1:5)/100 * lfps[i][1] ] #tried adding noise - whole thing put in brackets to make operations work
+        append!(noisy_meas, z[1])
         K = kalman_gain(P, H, R) #kalman gain calculation
         x = state_update(x, H, K, z) #update the state
         P = covariance_update(K, H, P, R) #update estimate uncertainty
@@ -94,10 +96,10 @@ function quick_trial(P, H, F, A, B, C, R, Q)
     end
 
     #print("\n", lfps[end][1], "\n", lfp_est[end])
-    return lfps, lfp_est, iters
+    return lfps, lfp_est, iters, noisy_meas
 end
      
-lfps, lfp_est, iters = quick_trial(P, H, F, A, B, C, R, Q)
+lfps, lfp_est, iters, noisy_meas = quick_trial(P, H, F, A, B, C, R, Q)
 
 plot_lfps = []
 for elem in lfps
@@ -105,16 +107,16 @@ for elem in lfps
 end
 
 time = [i for i in 1:(iters)]
-kf_plot = plot(time, [plot_lfps, lfp_est], label=["lfp" "estimate"])
+kf_plot = plot(time, [plot_lfps, lfp_est, noisy_meas], label=["lfp" "estimate" "meas"])
 
 #like above testing function but this one will give us latent states
 function second_trial(P, H, F, A, B, C, R, Q)
-    x = [0.01, 0.01, 0.01, 0.01] #initial guess
+    x = [0.001, 0.001, 0.001, 0.001] #starting state
     u = 0.1 #constant input
     iters = 2000
     xs = []
     lfps = []
-    #loop to get sample values
+    #loop to get sample values with random noise added
     for i in 1:iters
         x = A*x + B*u
         append!(lfps, [C*x]) #appending as a one by one for sake of matrix operations later on
@@ -126,7 +128,7 @@ function second_trial(P, H, F, A, B, C, R, Q)
     x = [0, 0, 0, 0] #initial guess will be almost exactly right, just one time step behind
     for i in 1:iters
         #get measurement
-        z = lfps[i]
+        z = [ lfps[i][1] + (-1)^(rand(1:2)) * rand(1:5)/100 * lfps[i][1] ] #tried adding noise - whole thing put in brackets to make operations work
         K = kalman_gain(P, H, R) #kalman gain calculation
         x = state_update(x, H, K, z) #update the state
         P = covariance_update(K, H, P, R) #update estimate uncertainty
