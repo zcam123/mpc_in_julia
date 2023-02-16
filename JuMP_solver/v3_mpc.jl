@@ -42,7 +42,8 @@ Tpred = pred*sample
 # trial firing rate reference
 zref = .1 .+ .08*sin.(range(start=0, stop=2*pi, length=Int(1.5*Tpred)));
 
-using OSQP
+#using OSQP
+using Gurobi
 
 function mpc(steps, x0, zref; nu=1, u_clamp=nothing, sample=250)
     if nu == 1
@@ -58,13 +59,14 @@ function mpc(steps, x0, zref; nu=1, u_clamp=nothing, sample=250)
         zrefpad = cat(zref, fill(zref[end], Tall + Tpred - length(zref)), dims=1)
     end
 
-    neuron = Model(OSQP.Optimizer)
+    #neuron = Model(OSQP.Optimizer)
+    neuron = Model(Gurobi.Optimizer)
     set_silent(neuron)
 
     #Define state variables
     @variables(neuron, begin
         x[i=1:4, t=1:Tpred]
-        0 ≤ u[1:nu, 1:(ctr+1)]
+        0 ≤ u[1:nu, 1:(ctr+1)] .<= 40
         yD[i=1:1, t=1:Tpred]
         # xD[i=1:4, t=1:Tpred], (start = 0)
     end)
@@ -82,7 +84,7 @@ function mpc(steps, x0, zref; nu=1, u_clamp=nothing, sample=250)
             u_cost[t=1:ctr+1], u[t]'*R*u[t]
         end
     )
-
+    
     #fix first sample steps
     @constraint(neuron, x[:, 2:(sample)] .== A*x[:, 1:sample-1] + B*u[:, 1])
 
@@ -139,6 +141,27 @@ end
 
 steps = T ÷ sample
 mpc2res = mpc(steps, zeros(4), zref, nu=2, u_clamp=nothing, sample=sample);
+zs, us = mpc2res
+
+uu1 = us[1,:]
+uu2 = us[2,:]
+plot([i for i in 1:601], uu2[2000:2600])
+
+# zeross = [0 for _ in length(uu1)]
+# print("\n", uu1 >= zeross, "   ", uu2 >= zeross)
+u1_problem = false
+u2_problem = false
+for u in uu1
+    if u < 0
+        global u1_problem = true
+    end
+end
+for u in uu2
+    if u < 0
+        global u2_problem = true
+    end
+end
+print("\n", u1_problem, "  ", u2_problem)
 
 function plotctrl(zs, us; title=nothing, plotargs...)
     nu = size(us, 1)

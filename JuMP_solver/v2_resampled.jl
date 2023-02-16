@@ -163,7 +163,18 @@ for u in us
     end
 end
 
-print(length(firing_rate_ref), "\n", length(plottable_us), "\n", length(zs))
+#print(length(firing_rate_ref), "\n", length(plottable_us), "\n", length(zs))
+
+zeross = [0 for i in 1:steps*sample]
+print(plottable_us >= zeross)
+
+u_problem = false
+for u in plottable_us
+    if u < 0
+        global u_problem = true
+    end
+end
+print("\n", u_problem)
 
 time = [i for i in 1:(steps*sample)]
 zs_plot = plot(time, [firing_rate_ref[1:(sample*steps)], zs], label=["reference" "firing rate"])
