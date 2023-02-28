@@ -55,7 +55,7 @@ R = [0.01] #nonzero now that we have added noise
 Q = I*0
 
 #to be called in simulation
-function KF_est(z, P, x_est, u)
+function KF_est(z, P, x_est, u; A=A, B=B, C=C)
     K = kalman_gain(P, H, R) #kalman gain calculation
     x_est = state_update(x_est, H, K, z) #update the state estimate
     P = covariance_update(K, H, P, R) #update estimate uncertainty
