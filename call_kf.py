@@ -123,6 +123,8 @@ time_ax = [i for i in range(steps*sample)]
 
 #~ For plotting LFPs
 plt.plot(time_ax, ys, plot_yDs)
+title = "Sample: {sample}".format(sample=sample)
+plt.title(title)
 plt.show()
 
 
