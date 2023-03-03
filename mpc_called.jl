@@ -249,7 +249,7 @@ function mpc(x0, zref; nu=1, u_clamp=nothing, sample=250, A=A, B=B, C=C)
 end
 
 #1 stands for z mode and 2 is for y mode - did this because waned to avoid converting julia and python strings
-function flex_mpc(x0, ref; nu=1, u_clamp=nothing, sample=250, A=A, B=B, C=C, ref_type=1)
+function flex_mpc(x0, ref; nu=1, sample=250, A=A, B=B, C=C, ref_type=1)
     # if nu == 1
     #     B = B1
     # elseif nu == 2
@@ -322,9 +322,6 @@ function flex_mpc(x0, ref; nu=1, u_clamp=nothing, sample=250, A=A, B=B, C=C, ref
 
     #for t in 1:steps - got rid of for loop since only optimizing once
     fix.(x[:, 1], x_current; force=true)
-    if u_clamp != nothing
-        fix.(u[:, 1], u_clamp; force=true)
-    end
 
     #set desired trajectory and optimize
     fix.(yD[:], yDall[1:Tpred], force=true)
