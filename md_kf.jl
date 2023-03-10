@@ -2,15 +2,15 @@ using LinearAlgebra
 using Plots
 
 #parameters of the model
-A = [1 -6.66e-13 -2.03e-9 -4.14e-6;
-        9.83e-4 1 -4.09e-8 -8.32e-5;
-        4.83e-7 9.83e-4 1 -5.34e-4;
-        1.58e-10 4.83e-7 9.83e-4 .9994;
-]
+# A = [1 -6.66e-13 -2.03e-9 -4.14e-6;
+#         9.83e-4 1 -4.09e-8 -8.32e-5;
+#         4.83e-7 9.83e-4 1 -5.34e-4;
+#         1.58e-10 4.83e-7 9.83e-4 .9994;
+# ]
 
-B = [9.83e-4 4.83e-7 1.58e-10 3.89e-14]'
+# B = [9.83e-4 4.83e-7 1.58e-10 3.89e-14]'
 
-C = [-.0096 .0135 .005 -.0095]
+# C = [-.0096 .0135 .005 -.0095]
 
 #function to get kalman gain 
 function kalman_gain(P, H, R)
@@ -40,22 +40,24 @@ function extrapolate_covariance(P, F, Q)
 end
 
 #state update matrix
-F = A
+#F = A
 #def initial estimate uncertainty
 #assume that covariance of latent state vars is zero
-P = I*15 #initial estimate uncertainty depends on confidence in our initial guess of the state x
+#P = I*15 #initial estimate uncertainty depends on confidence in our initial guess of the state x
 
 #observability matrix H (which is C in our model)
-H = [-.0096 .0135 .005 -.0095];
+#H = [-.0096 .0135 .005 -.0095];
 
 #measurement uncertainty R depends on accuracy of our LFP measurements
-R = [0.01] #nonzero now that we have added noise
+R = [1e-7] #nonzero now that we have added noise
 
 #process noise Q
 Q = I*0
 
 #to be called in simulation
 function KF_est(z, P, x_est, u; A=A, B=B, C=C)
+    H = C #def observability matrix
+    F = A #state update matrix
     K = kalman_gain(P, H, R) #kalman gain calculation
     x_est = state_update(x_est, H, K, z) #update the state estimate
     P = covariance_update(K, H, P, R) #update estimate uncertainty
@@ -68,7 +70,8 @@ end
 #x_, P_ = KF_est([1], P, zeros(4), 1)
 
 #to be called in simulation - only updates based on measurement which is all we need in some cases
-function only_update_KF(z, P, x_est)
+function only_update_KF(z, P, x_est, C)
+    H = C
     K = kalman_gain(P, H, R) #kalman gain calculation
     x_est = state_update(x_est, H, K, z) #update the state estimate
     P = covariance_update(K, H, P, R) #update estimate uncertainty

@@ -21,10 +21,10 @@ C = [-.0096 .0135 .005 -.0095]
 
 y2z(y) = exp(61.4*y - 5.468)
 z2y(z) = (log(z) + 5.468)/61.4
-
+#!pred = 25 and ctr = 5 were values before I started playing with them
 t_step = 0.001 #1 milisecond
-pred = 25 #prediction horizon
-ctr = 5 #control horizon
+pred = 30 #prediction horizon
+ctr = 6 #control horizon
 sample = 200 #number of steps between sampling points for control
 
 zD = 0.2
@@ -32,7 +32,7 @@ yD = z2y(zD)
 uD = inv(C*inv(I - A)*B) * yD
 #xD = inv(I - A) * B * uD
 Q = C'*C
-R = 1e-5*I
+R = 1e-6*I # original R = 1e-5*I
 T = 13000
 Tpred = pred*sample
 

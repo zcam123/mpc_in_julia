@@ -39,26 +39,28 @@ def z_to_y(z):
     return (np.log(z) + 5.468)/61.4
 
 ##sample control loop
-sample = 150
-sim_length = 5000
+sample = 3
+sim_length = 1000
 steps = int(sim_length/sample) #convert to integer or else python complains
 
-zref = [0.1 + 0.08*np.sin(i/(20*sample)) for i in range(25*sample)]
-for _ in range(int(steps*sample) - len(zref)):
-    zref.append(zref[-1])
-plot_zDs = zref #store initial reference now before it gets initial values chopped off during below loop
+#! For custom references
+# zref = [0.101 + 0.1*np.sin(i/(25)) for i in range(steps*sample)]
+# for _ in range(int(steps*sample) - len(zref)):
+#     zref.append(zref[-1])
+# plot_zDs = zref #store initial reference now before it gets initial values chopped off during below loop
 
-#see if above works when given as lfp
-yref = [z_to_y(elem) for elem in zref]
-plot_yDs = yref
+# #see if above works when given as lfp
+# yref = [-1*z_to_y(elem) for elem in zref]
+# #yref = yref[:steps*sample]#ensure reference not too long
+# plot_yDs = yref
 
 #!cc3 reference
-# #yref = z_to_y(zref)
-# from_file = np.load("tklfp.npy")
-# yref = [elem for elem in from_file]
-# for _ in range(steps*sample - len(yref)):
-#     yref.append(yref[-1])
-# plot_yDs = yref #store initial reference now before it gets initial values chopped off during below loop
+#yref = z_to_y(zref)
+from_file = np.load("tklfp.npy")
+yref = [elem for elem in from_file]
+for _ in range(steps*sample - len(yref)):
+    yref.append(yref[-1])
+plot_yDs = yref #store initial reference now before it gets initial values chopped off during below loop
 
 #! simple yref for testing
 # yref = (-1)*np.exp((-1/2000)*(np.arange(-600, 600))**2) - 0.1
@@ -80,7 +82,7 @@ for i in range(steps):
     #kf part
     #z = np.array(C@x + 1**(rand.randint(2)) * rand.randint(5)/100 * C@x) #lfp value with noise +/- 0-4% error
     z = np.array(rand.normal(C@x, np.sqrt(R))) #Gaussian noise added to measurement of lfp
-    x_est, P = jl.only_update_KF(jl.Array(z), jl.Array(P), jl.Array(x_est))
+    x_est, P = jl.only_update_KF(jl.Array(z), jl.Array(P), jl.Array(x_est), jl.Array(C))
 
     #mpc part - now using KF estimate's x instead of the actual state
     optimal_u = jl.flex_mpc(jl.Array(x_est), jl.Array( np.array(yref) ), nu=1, sample=sample, A=jl.Array(A), B=jl.Array(B), C=jl.Array(C), ref_type=2)
