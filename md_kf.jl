@@ -1,7 +1,7 @@
 using LinearAlgebra
 using Plots
 
-#parameters of the model
+#old parameters of the model
 # A = [1 -6.66e-13 -2.03e-9 -4.14e-6;
 #         9.83e-4 1 -4.09e-8 -8.32e-5;
 #         4.83e-7 9.83e-4 1 -5.34e-4;
@@ -39,23 +39,15 @@ function extrapolate_covariance(P, F, Q)
     return F*P*F' + Q
 end
 
-#state update matrix
-#F = A
-#def initial estimate uncertainty
-#assume that covariance of latent state vars is zero
-#P = I*15 #initial estimate uncertainty depends on confidence in our initial guess of the state x
-
-#observability matrix H (which is C in our model)
-#H = [-.0096 .0135 .005 -.0095];
-
 #measurement uncertainty R depends on accuracy of our LFP measurements
-R = [1e-7] #nonzero now that we have added noise
+#R = [1e-7] #nonzero now that we have added noise
 
 #process noise Q
 Q = I*0
 
 #to be called in simulation
-function KF_est(z, P, x_est, u; A=A, B=B, C=C)
+function KF_est(z, P, R, x_est, u; A=A, B=B, C=C)
+    R = [R]
     H = C #def observability matrix
     F = A #state update matrix
     K = kalman_gain(P, H, R) #kalman gain calculation
@@ -67,10 +59,9 @@ function KF_est(z, P, x_est, u; A=A, B=B, C=C)
     return x_est, P
 end    
 
-#x_, P_ = KF_est([1], P, zeros(4), 1)
-
 #to be called in simulation - only updates based on measurement which is all we need in some cases
-function only_update_KF(z, P, x_est, C)
+function only_update_KF(z, P, R, x_est, C)
+    R = [R]
     H = C
     K = kalman_gain(P, H, R) #kalman gain calculation
     x_est = state_update(x_est, H, K, z) #update the state estimate
@@ -78,9 +69,7 @@ function only_update_KF(z, P, x_est, C)
     return x_est, P
 end
 
-# println("\n", size(P_), "\n", P_)
-
-# #trial
+# ! Below was used for testing kf performance before being called to python
 # x_guess = [0, 0, 0, 0]
 # z = [1] #treat z as a 1 by 1 to make operations go smoothly above
 # K = kalman_gain(P, H, R)

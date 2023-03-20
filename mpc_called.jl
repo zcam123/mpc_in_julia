@@ -2,48 +2,35 @@ using JuMP
 using Plots
 using LinearAlgebra
 
-#defining all parameters for model and probem
-A = [1 -6.66e-13 -2.03e-9 -4.14e-6;
-        9.83e-4 1 -4.09e-8 -8.32e-5;
-        4.83e-7 9.83e-4 1 -5.34e-4;
-        1.58e-10 4.83e-7 9.83e-4 .9994;
-]
+#! Old model parameters
+# #defining all parameters for model and probem
+# A = [1 -6.66e-13 -2.03e-9 -4.14e-6;
+#         9.83e-4 1 -4.09e-8 -8.32e-5;
+#         4.83e-7 9.83e-4 1 -5.34e-4;
+#         1.58e-10 4.83e-7 9.83e-4 .9994;
+# ]
 
-B = [9.83e-4 4.83e-7 1.58e-10 3.89e-14]'
+# B = [9.83e-4 4.83e-7 1.58e-10 3.89e-14]'
 
-B1 = B
+# B1 = B
 
-# fake opsin
-Binh = -B .* (1 .+ randn(4, 1)./5)
-B2 = [B Binh]
+# # fake opsin
+# Binh = -B .* (1 .+ randn(4, 1)./5)
+# B2 = [B Binh]
 
-C = [-.0096 .0135 .005 -.0095]
+# C = [-.0096 .0135 .005 -.0095]
 
 y2z(y) = exp(61.4*y - 5.468)
 z2y(z) = (log(z) + 5.468)/61.4
-#!pred = 25 and ctr = 5 were values before I started playing with them
+
 t_step = 0.001 #1 milisecond
 pred = 30 #prediction horizon
 ctr = 6 #control horizon
 sample = 200 #number of steps between sampling points for control
 
-zD = 0.2
-yD = z2y(zD)
-uD = inv(C*inv(I - A)*B) * yD
-#xD = inv(I - A) * B * uD
-Q = C'*C
 R = 1e-6*I # original R = 1e-5*I
 T = 13000
 Tpred = pred*sample
-
-# add in our variable reference
-#structured to take a list of firing rate values, convert them to x vectors, then pad with zeros if necessary
-##zref = [i < 3000 ? 0.1 : 0.15 for i in 1:T] #trial firing rate reference
-# trial firing rate reference
-
-###debug check - ok woah that brough down ugly spike to 16 from about 400 so maybe there was name space conflict
-#orrrrr - maybe random noise gods just helped us - yup actualy that's what it was - in any case, being commented out is harmless
-#zref = .1 .+ .08*sin.(range(start=0, stop=2*pi, length=Int(1.5*Tpred)));
 
 using OSQP
 
@@ -124,35 +111,10 @@ function mpc_beta(x0, zref; nu=1, u_clamp=nothing, sample=250)
     #return first input for use in experiment
     optimal_u = value.(u[:, 1])
     return optimal_u
-
-    #     zs[1, tfine] = y2z.(value(y[1]))
-    #     us[:, tfine] = value.(u[:, 1])
-    #     # append!(zs , y2z.(value(y[1])))
-    #     # append!(us, value(u[:, 1]))
-    #     x_current = value.(x[:, 2])
-    #     # println(x_current)
-    #     # now effectively apply optimal first u for 250 more steps
-    #     const_u = value.(u[:, 1]);
-    #     tfine += 1
-
-    #     for i in 1:(sample-1)
-    #         x_current = A*x_current + B*const_u
-    #         # append!(zs, y2z.((C*x_current)[1]))
-    #         zs[1, tfine] = y2z.((C*x_current)[1])
-    #         us[:, tfine] = const_u
-    #         tfine += 1
-    #     end
-    # end
-    # #println(solution_summary(neuron))
-    # return zs, us
 end
 
-#mpc2res = mpc(zeros(4), zref, nu=2, u_clamp=nothing, sample=sample)
-
-
-
 ###new version which will take in variable parameters
-function mpc(x0, zref; nu=1, u_clamp=nothing, sample=250, A=A, B=B, C=C)
+function mpc_v2(x0, zref; nu=1, u_clamp=nothing, sample=250, A=A, B=B, C=C)
     # if nu == 1
     #     B = B1
     # elseif nu == 2
@@ -225,29 +187,10 @@ function mpc(x0, zref; nu=1, u_clamp=nothing, sample=250, A=A, B=B, C=C)
     #return first input for use in experiment
     optimal_u = value.(u[:, 1])
     return optimal_u
-
-    #     zs[1, tfine] = y2z.(value(y[1]))
-    #     us[:, tfine] = value.(u[:, 1])
-    #     # append!(zs , y2z.(value(y[1])))
-    #     # append!(us, value(u[:, 1]))
-    #     x_current = value.(x[:, 2])
-    #     # println(x_current)
-    #     # now effectively apply optimal first u for 250 more steps
-    #     const_u = value.(u[:, 1]);
-    #     tfine += 1
-
-    #     for i in 1:(sample-1)
-    #         x_current = A*x_current + B*const_u
-    #         # append!(zs, y2z.((C*x_current)[1]))
-    #         zs[1, tfine] = y2z.((C*x_current)[1])
-    #         us[:, tfine] = const_u
-    #         tfine += 1
-    #     end
-    # end
-    # #println(solution_summary(neuron))
-    # return zs, us
 end
 
+#!Current version of mpc
+#Called flex_mpc since can take variable parameters and switch between firing rate and lfp input
 #1 stands for z mode and 2 is for y mode - did this because waned to avoid converting julia and python strings
 function flex_mpc(x0, ref; nu=1, sample=250, A=A, B=B, C=C, ref_type=1)
     # if nu == 1
